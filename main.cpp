@@ -94,6 +94,50 @@ public:
 	}
 };
 
+
+struct alignas(16) ConstantBuffer1 {
+	float time;
+};
+
+class ConstantBuffer {
+public:
+	ID3D12Resource* constantBuffer;
+	unsigned char* buffer;
+	unsigned int cbSizeInBytes;
+
+	void initialize(Core* core, unsigned int sizeInBytes, int frames) {
+		cbSizeInBytes = (sizeInBytes + 255) & ~255;
+
+		HRESULT hr;
+		D3D12_HEAP_PROPERTIES heapprops = {};
+		heapprops.Type = D3D12_HEAP_TYPE_UPLOAD;
+		heapprops.CreationNodeMask = 1;
+		heapprops.VisibleNodeMask = 1;
+
+		D3D12_RESOURCE_DESC cbDesc = {};
+		cbDesc.Width = cbSizeInBytes * frames;
+		cbDesc.Height = 1;
+		cbDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+		cbDesc.DepthOrArraySize = 1;
+		cbDesc.MipLevels = 1;
+		cbDesc.SampleDesc.Count = 1;
+		cbDesc.SampleDesc.Quality = 0;
+		cbDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+		hr = core->device->CreateCommittedResource(&heapprops, D3D12_HEAP_FLAG_NONE, &cbDesc,
+			D3D12_RESOURCE_STATE_GENERIC_READ, NULL, __uuidof(ID3D12Resource), (void**)&constantBuffer);
+		hr = constantBuffer->Map(0, NULL, (void**)&buffer);
+	}
+
+	void update(void* data, unsigned int sizeInBytes, int frame) const {
+		memcpy(buffer + (frame * cbSizeInBytes), data, sizeInBytes);
+	}
+
+	D3D12_GPU_VIRTUAL_ADDRESS getGPUAddress(int frame) {
+		return (constantBuffer->GetGPUVirtualAddress() + (frame * cbSizeInBytes));
+	}
+};
+
 // Simplest primitive is a triangle
 class Primitive {
 public:
@@ -107,6 +151,9 @@ public:
 	// Instance of Pipeline Stage Object Manager
 	PSOManager psos;
 
+	// Constant Buffer
+	ConstantBuffer constantBuffer;
+
 	std::string readShader(std::string filename) {
 		std::ifstream file(filename);
 		std::stringstream buffer;
@@ -114,8 +161,15 @@ public:
 		return buffer.str();
 	}
 
+	void initialize(Core* core) {
+		triangle.initialize(core);
+		constantBuffer.initialize(core, sizeof(ConstantBuffer1), 2);
+		compile(core);
+	}
+
 	void compile(Core* core) {
 		ID3DBlob* status;
+
 		// Compile vertex shader
 		std::string vertexShaderStr = readShader("VertexShader.hlsl");
 		HRESULT hr = D3DCompile(vertexShaderStr.c_str(), strlen(vertexShaderStr.c_str()), NULL, NULL, NULL, "VS", "vs_5_0", 0, 0, &vertexShader, &status);
@@ -138,13 +192,15 @@ public:
 		psos.createPSO(core, "Triangle", vertexShader, pixelShader, triangle.mesh.inputLayoutDesc);
 	}
 
-	void initialize(Core* core) {
-		triangle.initialize(core);
-		compile(core);
-	}
-
-	void draw(Core* core) {
+	void draw(Core* core, ConstantBuffer1* cb) {
 		core->beginRenderPass();
+
+		// Update the GPU memory
+		constantBuffer.update(cb, sizeof(ConstantBuffer1), core->frameIndex());
+
+		// Bind Constant Buffer View to Root Signature index
+		core->getCommandList()->SetGraphicsRootConstantBufferView(1, constantBuffer.getGPUAddress(core->frameIndex()));
+
 		psos.bind(core, "Triangle");
 		triangle.draw(core);
 	}
@@ -155,16 +211,23 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	Window window;
 	Core core;
 	Primitive primitive;
+	GamesEngineeringBase::Timer timer;
 	
 	window.initialize(1024, 1024, "My Window");
 	core.initialize(window.hwnd, 1024, 1024);
 	primitive.initialize(&core);
+
+	ConstantBuffer1 constBufferCPU;
+	constBufferCPU.time = 0;
 	
 	while (true) {
+		float dt = timer.dt();
+		constBufferCPU.time += dt;
+
+		if (window.keys[VK_ESCAPE] == 1) break;
 		core.beginFrame();
 		window.processMessages();
-		if (window.keys[VK_ESCAPE] == 1) break;
-		primitive.draw(&core);
+		primitive.draw(&core, &constBufferCPU);
 		core.finishFrame();
 	}
 	core.flushGraphicsQueue();
