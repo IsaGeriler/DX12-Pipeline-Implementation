@@ -1,8 +1,12 @@
+#define _USE_MATH_DEFINES
+#define M_PI 3.14159265358979323846
+
 #include "Core.h"
 #include "MyMath.h"
 #include "PSOManager.h"
 #include "Window.h"
 
+#include <cmath>
 #include <fstream>
 #include <sstream>
 
@@ -99,6 +103,12 @@ struct alignas(16) ConstantBuffer1 {
 	float time;
 };
 
+struct alignas(16) ConstantBuffer2 {
+	float time;
+	float padding[3];
+	Vec4 lights[4];
+};
+
 class ConstantBuffer {
 public:
 	ID3D12Resource* constantBuffer;
@@ -163,7 +173,7 @@ public:
 
 	void initialize(Core* core) {
 		triangle.initialize(core);
-		constantBuffer.initialize(core, sizeof(ConstantBuffer1), 2);
+		constantBuffer.initialize(core, sizeof(ConstantBuffer2), 2);
 		compile(core);
 	}
 
@@ -192,11 +202,11 @@ public:
 		psos.createPSO(core, "Triangle", vertexShader, pixelShader, triangle.mesh.inputLayoutDesc);
 	}
 
-	void draw(Core* core, ConstantBuffer1* cb) {
+	void draw(Core* core, ConstantBuffer2* cb) {
 		core->beginRenderPass();
 
 		// Update the GPU memory
-		constantBuffer.update(cb, sizeof(ConstantBuffer1), core->frameIndex());
+		constantBuffer.update(cb, sizeof(ConstantBuffer2), core->frameIndex());
 
 		// Bind Constant Buffer View to Root Signature index
 		core->getCommandList()->SetGraphicsRootConstantBufferView(1, constantBuffer.getGPUAddress(core->frameIndex()));
@@ -208,6 +218,10 @@ public:
 
 // C28251 warning -> int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine, int nCmdShow)
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ PSTR lpCmdLine, _In_ int nCmdShow) {
+	// Define screen dimensions
+	float WIDTH = 1024.0f;
+	float HEIGHT = 1024.0f;
+
 	Window window;
 	Core core;
 	Primitive primitive;
@@ -217,17 +231,27 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	core.initialize(window.hwnd, 1024, 1024);
 	primitive.initialize(&core);
 
-	ConstantBuffer1 constBufferCPU;
-	constBufferCPU.time = 0;
+	//ConstantBuffer1 constBufferCPU;
+	ConstantBuffer2 constBufferCPU2;
+
+	//constBufferCPU.time = 0;
+	constBufferCPU2.time = 0;
 	
 	while (true) {
-		float dt = timer.dt();
-		constBufferCPU.time += dt;
-
 		if (window.keys[VK_ESCAPE] == 1) break;
+
+		float dt = timer.dt();
+		//constBufferCPU.time += dt;
+		constBufferCPU2.time += dt;
+
+		// Let’s add lights spinning over the triangle
+		for (int i = 0; i < 4; i++) {
+			float angle = constBufferCPU2.time + (i * M_PI / 2.0f);
+			constBufferCPU2.lights[i] = Vec4(WIDTH / 2.0f + (cosf(angle) * (WIDTH * 0.3f)), HEIGHT / 2.0f + (sinf(angle) * (HEIGHT * 0.3f)), 0, 0);
+		}
 		core.beginFrame();
 		window.processMessages();
-		primitive.draw(&core, &constBufferCPU);
+		primitive.draw(&core, &constBufferCPU2);
 		core.finishFrame();
 	}
 	core.flushGraphicsQueue();
