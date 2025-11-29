@@ -9,6 +9,7 @@
 #pragma comment(lib, "dxgi")
 #pragma comment(lib, "d3dcompiler.lib")
 
+// Ensure memory visibility across queue operations
 class Barrier {
 public:
 	static void add(ID3D12Resource* res, D3D12_RESOURCE_STATES first, D3D12_RESOURCE_STATES second, ID3D12GraphicsCommandList4* commandList) {
@@ -22,6 +23,7 @@ public:
 	}
 };
 
+// Signal when a queue finishes (Wait for a fence before starting dependent tasks on another queue)
 class GPUFence {
 public:
 	ID3D12Fence* fence;
@@ -52,14 +54,17 @@ public:
 
 class Core {
 public:
+	// Representation of the Adapter
 	IDXGIAdapter1* adapter;
 
+	// Core Interfaces
 	ID3D12Device5* device;
 	ID3D12CommandQueue* graphicsQueue;
 	ID3D12CommandQueue* copyQueue;
 	ID3D12CommandQueue* computeQueue;
 	IDXGISwapChain3* swapchain;
 
+	// One for each frame
 	ID3D12CommandAllocator* graphicsCommandAllocator[2];
 	ID3D12GraphicsCommandList4* graphicsCommandList[2];
 
@@ -110,7 +115,7 @@ public:
 		}
 		adapter = adapters[useAdapterIndex];
 
-		// DX12 Device on Adapter
+		// Create DX12 Device on Adapter
 		D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(&device));
 
 		// Create Command Queues
@@ -131,8 +136,8 @@ public:
 		scDesc.Height = _height;
 		scDesc.SampleDesc.Count = 1;  // MSAA here
 		scDesc.SampleDesc.Quality = 0;
-		scDesc.BufferCount = 2;
-		scDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+		scDesc.BufferCount = 2;		  // Double Buffering
+		scDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;  // Stop copying memory and start swapping pointers
 
 		// Create the swapchain
 		IDXGISwapChain1* swapChain1;
@@ -157,11 +162,12 @@ public:
 		device->CreateDescriptorHeap(&renderTargetViewHeapDesc, IID_PPV_ARGS(&backbufferHeap));
 
 		// Allocate memory for Backbuffer array
-		backbuffers = new ID3D12Resource * [scDesc.BufferCount];
+		backbuffers = new ID3D12Resource* [scDesc.BufferCount];
 
 		// Get backbuffers and create views on heap
 		D3D12_CPU_DESCRIPTOR_HANDLE renderTargetViewHandle = backbufferHeap->GetCPUDescriptorHandleForHeapStart();
 		unsigned int renderTargetViewDescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
 		for (unsigned int i = 0; i < 2; i++) {
 			swapchain->GetBuffer(i, IID_PPV_ARGS(&backbuffers[i]));
 			device->CreateRenderTargetView(backbuffers[i], nullptr, renderTargetViewHandle);
@@ -191,11 +197,13 @@ public:
 		depthClearValue.DepthStencil.Depth = 1.0f;
 		depthClearValue.DepthStencil.Stencil = 0;
 
+		// Specify which type of memory to allocate Depth Buffer (want fast on chip memory)
 		D3D12_HEAP_PROPERTIES heapprops = {};
 		heapprops.Type = D3D12_HEAP_TYPE_DEFAULT;
 		heapprops.CreationNodeMask = 1;
 		heapprops.VisibleNodeMask = 1;
 
+		// Specify resource information
 		D3D12_RESOURCE_DESC dsvDesc = {};
 		dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
 		dsvDesc.Width = _width;
@@ -258,18 +266,21 @@ public:
 	int frameIndex() {
 		return swapchain->GetCurrentBackBufferIndex();
 	}
-
+	
+	// Reset command allocator and command list (Find correct command list from Back Buffer in use)
 	void resetCommandList() {
 		unsigned int frameIndex = swapchain->GetCurrentBackBufferIndex();
 		graphicsCommandAllocator[frameIndex]->Reset();
 		graphicsCommandList[frameIndex]->Reset(graphicsCommandAllocator[frameIndex], NULL);
 	}
 
+	// Will need this when issuing commands
 	ID3D12GraphicsCommandList4* getCommandList() {
 		unsigned int frameIndex = swapchain->GetCurrentBackBufferIndex();
 		return graphicsCommandList[frameIndex];
 	}
 
+	// Close and execute the list
 	void runCommandList() {
 		getCommandList()->Close();
 		ID3D12CommandList* lists[] = { getCommandList() };

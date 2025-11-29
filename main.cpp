@@ -41,7 +41,7 @@ public:
 		heapprops.CreationNodeMask = 1;
 		heapprops.VisibleNodeMask = 1;
 
-		// Create a vertex buffer
+		// Create a vertex buffer on heap
 		D3D12_RESOURCE_DESC vbDesc = {};
 		vbDesc.Width = numVertices * vertexSizeInBytes;
 		vbDesc.Height = 1;
@@ -170,7 +170,7 @@ public:
 };
 
 // Simplest primitive is a triangle
-class Primitive {
+class Shader {
 public:
 	// Vertex and Pixel Shaders
 	ID3DBlob* vertexShader;
@@ -260,6 +260,15 @@ public:
 	}
 };
 
+/*
+	Entry-point function - WinMain
+	WinMain Parameters:
+	1. hInstance - handle to an instance/a module. The operating system uses this value to identify the EXE when it's loaded in memory.
+	2. hPrevInstance - has no meaning. It was used in 16-bit Windows, but is now always zero.
+	3. lpCmdLine - contains the command-line arguments as a Unicode string.
+	4. nCmdShow - flag that indicates whether the main application window is minimized, maximized, or shown normally.
+*/
+
 // C28251 warning -> int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine, int nCmdShow)
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ PSTR lpCmdLine, _In_ int nCmdShow) {
 	// Define screen dimensions
@@ -268,24 +277,24 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 
 	Window window;
 	Core core;
-	Primitive primitive;
+	Shader shader;
 	GamesEngineeringBase::Timer timer;
 	
 	window.initialize(1024, 1024, "My Window");
 	core.initialize(window.hwnd, 1024, 1024);
-	primitive.initialize(&core);
+	shader.initialize(&core);
 
-	//ConstantBuffer1 constBufferCPU;
+	// ConstantBuffer1 constBufferCPU;
 	ConstantBuffer2 constBufferCPU2;
 
-	//constBufferCPU.time = 0;
+	// constBufferCPU.time = 0;
 	constBufferCPU2.time = 0;
 	
 	while (true) {
 		if (window.keys[VK_ESCAPE] == 1) break;
 
 		float dt = timer.dt();
-		//constBufferCPU.time += dt;
+		// constBufferCPU.time += dt;
 		constBufferCPU2.time += dt;
 
 		// Let’s add lights spinning over the triangle
@@ -295,7 +304,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 		}
 		core.beginFrame();
 		window.processMessages();
-		primitive.draw(&core, &constBufferCPU2);
+		shader.draw(&core, &constBufferCPU2);
 		core.finishFrame();
 	}
 	core.flushGraphicsQueue();

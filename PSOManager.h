@@ -9,6 +9,7 @@ class PSOManager {
 public:
 	std::unordered_map<std::string, ID3D12PipelineState*> psos;
 	void createPSO(Core* core, std::string name, ID3DBlob* vs, ID3DBlob* ps, D3D12_INPUT_LAYOUT_DESC layout) {
+		// Avoid creating extra state
 		if (psos.find(name) != psos.end()) return;
 		
 		// Configure GPU pipeline with shaders, layout and Root Signature
