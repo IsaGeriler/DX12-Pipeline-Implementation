@@ -6,6 +6,7 @@
 #include "PSOManager.h"
 #include "Window.h"
 
+#include <map>
 #include <cmath>
 #include <fstream>
 #include <sstream>
@@ -170,7 +171,7 @@ public:
 };
 
 // Simplest primitive is a triangle
-class Shader {
+class Primitive {
 public:
 	// Vertex and Pixel Shaders
 	ID3DBlob* vertexShader;
@@ -188,13 +189,6 @@ public:
 	std::vector<ConstantBuffer*> vsConstantBuffers; // Vertex Shader Buffers
 	std::vector<ConstantBuffer*> psConstantBuffers; // Pixel Shader Buffers
 
-	std::string readShader(std::string filename) {
-		std::ifstream file(filename);
-		std::stringstream buffer;
-		buffer << file.rdbuf();
-		return buffer.str();
-	}
-
 	void initialize(Core* core) {
 		triangle.initialize(core);
 
@@ -204,32 +198,19 @@ public:
 		// Register it to the list
 		psConstantBuffers.push_back(&constantBuffer);
 
-		compile(core);
-	}
+		// Load Shaders via Manager
+	    // Note: Use L"String" for wstring filenames
+		core->shaderManager.load("TriangleVS", L"VertexShader.hlsl", "VS", "vs_5_0", VERTEX_SHADER);
+		core->shaderManager.load("TrianglePS", L"PixelShader.hlsl", "PS", "ps_5_0", PIXEL_SHADER);
 
-	void compile(Core* core) {
-		ID3DBlob* status;
-
-		// Compile vertex shader
-		std::string vertexShaderStr = readShader("VertexShader.hlsl");
-		HRESULT hr = D3DCompile(vertexShaderStr.c_str(), strlen(vertexShaderStr.c_str()), NULL, NULL, NULL, "VS", "vs_5_0", 0, 0, &vertexShader, &status);
-
-		// Compile pixel shader
-		std::string pixelShaderStr = readShader("PixelShader.hlsl");
-		hr = D3DCompile(pixelShaderStr.c_str(), strlen(pixelShaderStr.c_str()), NULL, NULL, NULL, "PS", "ps_5_0", 0, 0, &pixelShader, &status);
-
-		// Check if shaders compiled
-		if (FAILED(hr)) {
-			if (status) {
-				// Print the error to the Visual Studio Output window
-				OutputDebugStringA((char*)status->GetBufferPointer());
-				status->Release();
-			}
-			return;
-		}
-
-		// Create pipeline stage
-		psos.createPSO(core, "Triangle", vertexShader, pixelShader, triangle.mesh.inputLayoutDesc);
+		// Create PSO using the loaded shaders
+		psos.createPSO(
+			core,
+			"Triangle",
+			core->shaderManager.getShader("TriangleVS"),
+			core->shaderManager.getShader("TrianglePS"),
+			triangle.mesh.inputLayoutDesc
+		);
 	}
 
 	void draw(Core* core, ConstantBuffer2* cb) {
@@ -277,12 +258,12 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 
 	Window window;
 	Core core;
-	Shader shader;
+	Primitive primitive;
 	GamesEngineeringBase::Timer timer;
 	
 	window.initialize(1024, 1024, "My Window");
 	core.initialize(window.hwnd, 1024, 1024);
-	shader.initialize(&core);
+	primitive.initialize(&core);
 
 	// ConstantBuffer1 constBufferCPU;
 	ConstantBuffer2 constBufferCPU2;
@@ -304,7 +285,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 		}
 		core.beginFrame();
 		window.processMessages();
-		shader.draw(&core, &constBufferCPU2);
+		primitive.draw(&core, &constBufferCPU2);
 		core.finishFrame();
 	}
 	core.flushGraphicsQueue();

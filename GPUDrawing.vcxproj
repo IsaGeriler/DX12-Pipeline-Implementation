@@ -127,6 +127,7 @@
     <ClInclude Include="GamesEngineeringBase.h" />
     <ClInclude Include="MyMath.h" />
     <ClInclude Include="PSOManager.h" />
+    <ClInclude Include="ShaderManager.h" />
     <ClInclude Include="Window.h" />
   </ItemGroup>
   <ItemGroup>

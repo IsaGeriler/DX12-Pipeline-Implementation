@@ -5,6 +5,8 @@
 #include <d3dcompiler.h>
 #include <vector>
 
+#include "ShaderManager.h"
+
 #pragma comment(lib, "d3d12")
 #pragma comment(lib, "dxgi")
 #pragma comment(lib, "d3dcompiler.lib")
@@ -81,6 +83,9 @@ public:
 	D3D12_RECT scissorRect;
 
 	ID3D12RootSignature* rootSignature;
+
+	// Shader Manager
+	ShaderManager shaderManager;
 
 	void initialize(HWND hwnd, int _width, int _height) {
 		// Enable the D3D12 debug layer
