@@ -123,15 +123,20 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="ConstantBuffer.h" />
     <ClInclude Include="Core.h" />
     <ClInclude Include="GamesEngineeringBase.h" />
+    <ClInclude Include="Mesh.h" />
     <ClInclude Include="MyMath.h" />
+    <ClInclude Include="Primitive.h" />
     <ClInclude Include="PSOManager.h" />
+    <ClInclude Include="ScreenSpaceTriangle.h" />
     <ClInclude Include="ShaderManager.h" />
     <ClInclude Include="Window.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Mesh.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

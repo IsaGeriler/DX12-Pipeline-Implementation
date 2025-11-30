@@ -78,10 +78,12 @@ void Window::initialize(unsigned int window_width, unsigned int window_height, s
 	wc.hIconSm = wc.hIcon;
 	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
 
-	// Sets the background color of the window to Black (if not, window might flash white for a split second before your DirectX engine starts rendering).
+	// Sets the background color of the window to Black 
+	// (if not, window might flash white for a split second before your DirectX engine starts rendering).
 	wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
 
-	// Tells Windows: "We don't want a File/Edit/View menu bar at the top." Games usually render their own UI, so they don't want the standard Windows menu.
+	// Tells Windows: "We don't want a File/Edit/View menu bar at the top." 
+	// Games usually render their own UI, so they don't want the standard Windows menu.
 	wc.lpszMenuName = NULL;
 
 	// Modern Windows uses Unicode (Wide Characters) internally.
@@ -115,7 +117,7 @@ void Window::processMessages() {
 	MSG msg;
 	ZeroMemory(&msg, sizeof(MSG));
 
-	// PeekMessage: Unlike standard apps which use GetMessage() (which puts the CPU to sleep until an event happens), PeekMessage checks the queue
+	// Unlike standard apps which use GetMessage() (which puts the CPU to sleep until an event happens), PeekMessage checks the queue
 	// and returns immediately. If there is a message, it returns true. If the queue is empty, it returns false.
 	// PM_REMOVE: This tells the OS, "I have read this message, please delete it from the queue so I don't read it again."
 	while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
