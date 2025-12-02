@@ -4,22 +4,15 @@
 #include "MyMath.h"
 
 #include <d3d12.h>
+#include <d3d12shader.h>
 #include <dxgi1_6.h>
 #include <d3dcompiler.h>
+#include <assert.h>
 
 #pragma comment(lib, "d3d12")
 #pragma comment(lib, "dxgi")
 #pragma comment(lib, "d3dcompiler.lib")
-
-struct alignas(16) ConstantBuffer1 {
-	float time;
-};
-
-struct alignas(16) ConstantBuffer2 {
-	float time;
-	float padding[3];
-	Vec4 lights[4];
-};
+#pragma comment(lib, "dxguid.lib")
 
 struct ConstantBufferVariable {
 	std::string name;
@@ -35,22 +28,24 @@ public:
 	unsigned int cbSizeInBytes;
 	unsigned int maxDrawCalls;
 	unsigned int offsetIndex;
+	unsigned int numInstances = 0;
 
+	std::string name;
 	std::map<std::string, ConstantBufferVariable> constantBufferData;
 
 	void initialize(Core* core, unsigned int sizeInBytes, unsigned int _maxDrawCalls = 1024) {
 		maxDrawCalls = _maxDrawCalls;
 		cbSizeInBytes = (sizeInBytes + 255) & ~255;
 		unsigned int cbSizeInBytesAligned = cbSizeInBytes * maxDrawCalls;
+		numInstances = _maxDrawCalls;
 		offsetIndex = 0;
-
 		HRESULT hr;
 		D3D12_HEAP_PROPERTIES heapprops = {};
 		heapprops.Type = D3D12_HEAP_TYPE_UPLOAD;
 		heapprops.CreationNodeMask = 1;
 		heapprops.VisibleNodeMask = 1;
 		D3D12_RESOURCE_DESC cbDesc = {};
-		cbDesc.Width = cbSizeInBytesAligned;  // Create a huge buffer
+		cbDesc.Width = cbSizeInBytesAligned;
 		cbDesc.Height = 1;
 		cbDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
 		cbDesc.DepthOrArraySize = 1;
@@ -58,14 +53,14 @@ public:
 		cbDesc.SampleDesc.Count = 1;
 		cbDesc.SampleDesc.Quality = 0;
 		cbDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
-		core->device->CreateCommittedResource(&heapprops, D3D12_HEAP_FLAG_NONE, &cbDesc, D3D12_RESOURCE_STATE_GENERIC_READ, NULL,
-			IID_PPV_ARGS(&constantBuffer));
+		core->device->CreateCommittedResource(&heapprops, D3D12_HEAP_FLAG_NONE, &cbDesc, D3D12_RESOURCE_STATE_GENERIC_READ, NULL, IID_PPV_ARGS(&constantBuffer));
 		constantBuffer->Map(0, NULL, (void**)&buffer);
 	}
 
-	void update(void* data, unsigned int sizeInBytes) {
-		memcpy(buffer + (offsetIndex * cbSizeInBytes), data, sizeInBytes);
+	void update(std::string name, void* data) {
+		ConstantBufferVariable cbVariable = constantBufferData[name];
+		unsigned int offset = offsetIndex * cbSizeInBytes;
+		memcpy(&buffer[offset + cbVariable.offset], data, cbVariable.size);
 	}
 
 	D3D12_GPU_VIRTUAL_ADDRESS getGPUAddress() const {
@@ -74,8 +69,6 @@ public:
 
 	void next() {
 		offsetIndex++;
-		if (offsetIndex >= maxDrawCalls) {
-			offsetIndex = 0;
-		}
+		if (offsetIndex >= maxDrawCalls) offsetIndex = 0;
 	}
 };

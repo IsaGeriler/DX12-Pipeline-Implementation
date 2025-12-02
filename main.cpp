@@ -41,27 +41,35 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	window.initialize(WIDTH, HEIGHT, "My Window");
 	core.initialize(window.hwnd, WIDTH, HEIGHT);
 	primitive.initialize(&core);
-
-	ConstantBuffer2 constBufferCPU2;  // Pulsing Triangle -> ConstantBuffer1 constBufferCPU1;
-	constBufferCPU2.time = 0;		  // Pulsing Triangle -> constBufferCPU1.time = 0;
+	float time = 0.f;
+	// ConstantBuffer2 constBufferCPU2;   // Pulsing Triangle -> ConstantBuffer1 constBufferCPU1;
+	// constBufferCPU2.time = 0;		  // Pulsing Triangle -> constBufferCPU1.time = 0;
 	
 	while (true) {
 		if (window.keys[VK_ESCAPE] == 1) break;
 		float dt = timer.dt();
-		constBufferCPU2.time += dt;  // Pulsing Triangle -> constBufferCPU1.time += dt;
+		time += dt;
+		primitive.constantBuffer.update("time", &time);
+		// constBufferCPU2.time += dt;  // Pulsing Triangle -> constBufferCPU1.time += dt;
 
 		// Let’s add lights spinning over the triangle
+		Vec4 lights[4];
 		for (int i = 0; i < 4; i++) {
-			float angle = constBufferCPU2.time + (i * M_PI / 2.0f);
-			constBufferCPU2.lights[i] = Vec4(
+			float angle = time + (i * M_PI / 2.0f);
+			lights[i] = Vec4(
 				WIDTH / 2.0f + (cosf(angle) * (WIDTH * 0.3f)),
 				HEIGHT / 2.0f + (sinf(angle) * (HEIGHT * 0.3f)), 
 				0, 0
 			);
 		}
+		// Update the array in the buffer
+		primitive.constantBuffer.update("lights", lights);
+
 		core.beginFrame();
 		window.processMessages();
-		primitive.draw(&core, &constBufferCPU2);
+
+		// Draw (Internal 'apply' handles the GPU address assignment)
+		primitive.draw(&core);
 		core.finishFrame();
 	}
 	core.flushGraphicsQueue();
